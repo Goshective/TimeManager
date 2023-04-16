@@ -17,6 +17,7 @@ from data.act_names import Activities_names
 from forms.users import RegisterForm
 from forms.login import LoginForm
 from forms.record import RecordForm
+from forms.activity import ActivityForm
 from config import *
 
 
@@ -32,26 +33,13 @@ def load_user(user_id):
     db_sess = db_session.create_session()
     return db_sess.query(User).get(user_id)
 
-"""@app.route("/add")
-def add_act():
-    db_sess = db_session.create_session()
-    names = ["CCC"]
-    acts = Activities_names()
-    acts.name = names[i]
-    acts.user_id = 1
-    current_user.act_names.append(acts)
-    db_sess.merge(current_user)
-    db_sess.commit()
-    return {[item.name for item in db_sess.query(Activities_names).filter(Activities_names.user == current_user)]}"""
-
 
 @app.route("/",  methods=['GET', 'POST'])
 def index():
     params = {'title': 'Домашняя страница',
               'description1': 'Домашняя страница',
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
-              'status_page': 'main',
-              'state': 0}
+              'status_page': 'main'}
     if current_user.is_authenticated:
         params['description1'] = 'Домашняя страница'
         params['description2'] = 'Тут можно записать время на активности и посмотреть простую статистику.'
@@ -76,16 +64,43 @@ def index():
             current_user.records.append(record)
             db_sess.merge(current_user)
             db_sess.commit()
-            params['state'] = 1
             return redirect('/')
         # else: print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data)
     return render_template("index.html", error="", **params)
 
 
-@app.route('/settings')
+@app.route('/settings', methods=['GET', 'POST'])
 def settings():
-    params = {'status_page': "settings"}
+    params = {'status_page': 'settings',
+              'title': 'Настройки',
+              'error': ""}
+    if current_user.is_authenticated:
+        activity_form = ActivityForm()
+        params['activity_form'] = activity_form
+        #print( activity_form.color.data,  activity_form.name.data, activity_form.validate_on_submit(), activity_form.errors)
+        if activity_form.validate_on_submit():
+            db_sess = db_session.create_session()
+            activities = Activities_names(name=activity_form.name.data)
+            current_user.act_names.append(activities)
+            db_sess.merge(current_user)
+            db_sess.commit()
+            return redirect('/settings')
+
     return render_template("settings.html", **params)
+
+
+"""@app.route("/settings")
+def add_act():
+    db_sess = db_session.create_session()
+    names = ["CCC"]
+    acts = Activities_names()
+    acts.name = names[i]
+    acts.user_id = 1
+    current_user.act_names.append(acts)
+    db_sess.merge(current_user)
+    db_sess.commit()
+    return {[item.name for item in db_sess.query(Activities_names).filter(Activities_names.user == current_user)]}"""
+
 
 @app.route('/reports')
 def charts_reports():

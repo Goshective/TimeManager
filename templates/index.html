@@ -74,16 +74,9 @@
                         {{ form.submit(type="submit", class="btn btn-primary") }}
                     </div>
                     {% if error != "" %}
-                    <div class="col">
                       <div class="alert alert-danger" role="alert">
                         {{error}}
                       </div>
-                    </div>
-                    {% elif state %}
-                    <div class="col">
-                      <span class="badge rounded-pill text-bg-success">Success</span>
-                      </div>
-                    </div>
                     {% endif %}
                 </div>
             </form>

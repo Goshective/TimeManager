@@ -1,1 +1,1 @@
-SECRET_KEY = ''
+SECRET_KEY = 'secret_key_for_github'
