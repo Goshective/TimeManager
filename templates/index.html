@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+    
+      <div class="starter-template">
+        <h1>{{description1}}</h1>
+        <p class="lead">{{description2}}</p>
+      </div>
+      {% if current_user.is_authenticated %}
+      <div class="row">
+       <div class="col-sm-4">
+         <div class="card">
+           <div class="card-body">
+             <h5 class="card-title">Всего записей за эту неделю</h5>
+             <h1 class="card-text" style="color:green">17ч 30м</h1>
+           </div>
+         </div>
+       </div>
+       <div class="col-sm-4">
+         <div class="card">
+           <div class="card-body">
+             <h5 class="card-title">Всего времени записано</h5>
+             <h1 class="card-text" style="color:green">158д 18ч</h1>
+           </div>
+         </div>
+       </div>
+       <div class="col-sm-4">
+         <div class="card">
+           <div class="card-body">
+             <h5 class="card-title">В среднем в день</h5>
+             <h1 class="card-text" style="color:green">4ч 15м</h1>
+           </div>
+         </div>
+       </div>
+
+       <div class="col-sm-12">
+         <h2>Последние 5 действий</h2>
+         <ul class="list-group">
+            {% for item in activities %}
+                <li class="list-group-item list-group-item-action">
+                    <div class="d-flex w-100 justify-content-between">
+                    <small>3 дня назад</small>
+                    <a href="#">Отменить</a>
+                    </div>
+                    <p class="mb-1">{{item.id}}</p>
+                </li>
+            {% endfor %}
+         </ul>
+        </div>
+            <h3>Сделать запись</h3>
+            <form class="input-group container" method="post">
+                {{ form.hidden_tag() }}
+                <div class="input-group mb-3">
+                    <div class="col">
+                        <label for="floatingInput1">{{ form.activity.label }}</label>
+                        {{ form.activity(class="form-select", id="floatingInput1") }}
+                    </div>
+                    <div class="col">
+                        <label for="floatingInput2">{{ form.date.label }}</label>
+                        {{ form.date(class="form-control", id="floatingInput2") }}
+                    </div>
+                    <div class="col">
+                        <label for="floatingInput3">{{ form.work_hour.label }}</label>
+                        {{ form.work_hour(class="form-control", id="floatingInput3") }}
+                    </div>
+                    <div class="col">
+                        <label for="floatingInput4">{{ form.work_min.label }}</label>
+                        {{ form.work_min(class="form-control", id="floatingInput4") }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        {{ form.submit(type="submit", class="btn btn-primary") }}
+                    </div>
+                    {% if error != "" %}
+                    <div class="col">
+                      <div class="alert alert-danger" role="alert">
+                        {{error}}
+                      </div>
+                    </div>
+                    {% elif state %}
+                    <div class="col">
+                      <span class="badge rounded-pill text-bg-success">Success</span>
+                      </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+      </div>
+    {% else %}
+      <p>
+        <img src="{{url_for('static', filename='img/Time_picture.png')}}" 
+        alt="здесь должна была быть картинка, но не нашлась">
+      </p>
+  {% endif %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js" integrity="sha384-qKXV1j0HvMUeCBQ+QVp7JcfGl760yU08IQ+GpUo5hlbpg51QRiuqHAJz8+BrxE/N" crossorigin="anonymous"></script>
+</body>
+</html>
+{% endblock %}
