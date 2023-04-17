@@ -35,15 +35,15 @@
        </div>
 
        <div class="col-sm-12">
-         <h2>Последние 5 действий</h2>
+         <h2>Последние 3 действия</h2>
          <ul class="list-group">
-            {% for item in activities %}
+            {% for item_name, item_time in records_list %}
                 <li class="list-group-item list-group-item-action">
                     <div class="d-flex w-100 justify-content-between">
-                    <small>3 дня назад</small>
+                    <small>{{item_time}}</small>
                     <a href="#">Отменить</a>
                     </div>
-                    <p class="mb-1">{{item.id}}</p>
+                    <p class="mb-1">{{item_name}}</p>
                 </li>
             {% endfor %}
          </ul>

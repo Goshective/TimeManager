@@ -19,6 +19,7 @@ from forms.login import LoginForm
 from forms.record import RecordForm
 from forms.activity import ActivityForm
 from config import *
+from functional_counting import Date_picker
 
 
 
@@ -26,6 +27,18 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+
+def get_remaining_time_handler(lst, db_sess):
+    ans = []
+    for item in lst:
+        dt = item.created_date
+        remain = Date_picker.get_time(dt, datetime.now())
+        act_name = db_sess.query(Activities_names).filter(Activities_names.user == current_user, 
+                                                          Activities_names.id == Records.name_id).first()
+        work_time = f'{act_name.name} - затрачено {item.work_hours + item.work_min // 30} ч.'
+        ans.append((remain, work_time))
+    return ans
 
 
 @login_manager.user_loader
@@ -39,18 +52,23 @@ def index():
     params = {'title': 'Домашняя страница',
               'description1': 'Домашняя страница',
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
-              'status_page': 'main'}
+              'status_page': 0}
     if current_user.is_authenticated:
         params['description1'] = 'Домашняя страница'
         params['description2'] = 'Тут можно записать время на активности и посмотреть простую статистику.'
         db_sess = db_session.create_session()
+
         form = RecordForm()
-        activities = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
-        form.activity.choices = [(item.id, item.name) for item in activities]
-        recs = db_sess.query(Records).filter(Records.user == current_user).all()[:5]
-        params['records'] = recs
         params['form'] = form
+        activities = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
         params['activities'] = activities
+
+        form.activity.choices = [(item.id, item.name) for item in activities]
+        recs = db_sess.query(Records).filter(Records.user == current_user).all()[:3]
+        records_on_site = get_remaining_time_handler(recs, db_sess)
+        params['records_list'] = records_on_site
+
+
         print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data, form.validate_on_submit())
         if form.validate_on_submit():
             if form.work_hour.data < 0 or form.work_min.data < 0 or (form.work_hour.data == form.work_min.data == 0):
@@ -71,7 +89,7 @@ def index():
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
-    params = {'status_page': 'settings',
+    params = {'status_page': 1,
               'title': 'Настройки',
               'error': ""}
     if current_user.is_authenticated:
@@ -104,7 +122,7 @@ def add_act():
 
 @app.route('/reports')
 def charts_reports():
-    params = {'status_page': "reports"}
+    params = {'status_page': 2}
     return render_template("reports.html", **params)
 
 
