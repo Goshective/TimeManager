@@ -83,7 +83,11 @@ def index():
 
             record = Records()
             record.name_id = form.activity.data
-            record.created_date = datetime.now() if form.date.data == datetime.now().date() else form.date.data
+            if form.date.data == datetime.now().date():
+                record.created_date = datetime.now()
+            else:
+                record.created_date = form.date.data
+
             record.work_hours = form.work_hour.data
             record.work_min = form.work_min.data
             current_user.records.append(record)
@@ -93,7 +97,8 @@ def index():
         # else: print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data)
     return render_template("index.html", error="", **params)
 
-@app.route('/cancel/<item_id>')
+
+@app.route('/cancel/<int:item_id>')
 def cancel(item_id):
     if current_user.is_authenticated:
         db_sess = db_session.create_session()
@@ -110,15 +115,13 @@ def settings():
     if current_user.is_authenticated:
         activity_form = ActivityForm()
         params['activity_form'] = activity_form
-        # print( activity_form.color.data,  activity_form.name.data, activity_form.validate_on_submit(), activity_form.errors)
         if activity_form.validate_on_submit():
             db_sess = db_session.create_session()
-            activities = Activities_names(name=activity_form.name.data)
+            activities = Activities_names(name=activity_form.name.data)  # and add color
             current_user.act_names.append(activities)
             db_sess.merge(current_user)
             db_sess.commit()
             return redirect('/settings')
-
     return render_template("settings.html", **params)
 
 
@@ -133,6 +136,18 @@ def add_act():
     db_sess.merge(current_user)
     db_sess.commit()
     return {[item.name for item in db_sess.query(Activities_names).filter(Activities_names.user == current_user)]}"""
+
+@app.route('/reports_all', methods=['GET', 'POST'])
+def bar_with_plotly():
+    params = {'title': 'Отчет по дням',
+              'description1': 'Отчет по дням',
+              'description2': 'Сначала войдите в аккаунт или заведите новый.',
+              'error': '',
+              'status_page': 3}
+    if current_user.is_authenticated:
+        params['description2'] = 'Тут можно посмотреть чёткую статистику по суммарно проведенному времени.'
+    return render_template("reports_all.html", **params)
+
 
 @app.route('/reports_summary', methods=['GET', 'POST'])
 def bar_with_plotly():
@@ -150,7 +165,6 @@ def bar_with_plotly():
         acts = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
         lst_ch = [(str(item.id), item.name) for item in acts]
         form.activities.choices = lst_ch
-        form.activities.default = lst_ch
 
         params['form'] = form
         print(form.submit.data, form.to_default.data)
@@ -167,108 +181,23 @@ def bar_with_plotly():
                 from_date <= Records.created_date, 
                 Records.created_date < to_date,
                 Records.name_id.in_(acts_id)).all()
-
-            activities = [[item.act_n.name, item.work_hours + item.work_min / 60, 'None'] for item in recs]
         else:
-            # print(form.errors)
             recs = db_sess.query(Records).filter(Records.user == current_user).all()
-            activities = [[item.act_n.name, item.work_hours + item.work_min / 60, 'None'] for item in recs]
-            """activities = [['Прога', 34, 'Sydney'],
-                        ['Да', 30, 'Coimbatore'],
-                        ['Нет', 31, 'Coimbatore'],
-                        ['СИНТИПОП', 32, 'Tokyo'],
-                        ['Да', 16, 'New York'],
-                        ['Спорт', 17, 'Toronto']]"""
+
+        activities = [[item.act_n.name, item.work_hours + item.work_min / 60, 'None'] for item in recs]
+        """activities = [['Прога', 34, 'Sydney'], ... , ['Спорт', 17, 'Toronto']]"""
             
             # Convert list to dataframe and assign column values
         df = pd.DataFrame(activities,
-                        columns=['Активность', 'Часы', 'Группа'])
-        
+                        columns=['Активности', 'Часы', 'Группа'])
         # Create Bar chart
-        fig = px.bar(df, x='Часы', y='Активность', color='Активность', barmode='group', orientation='h')
-        
+        fig = px.bar(df, x='Часы', y='Активности', color='Активности', barmode='group', orientation='h')
         # Create graphJSON
         graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
         
             # Use render_template to pass graphJSON to html
         return render_template("reports_sum.html", graphJSON=graphJSON, **params)
     return render_template("reports_sum.html", **params)
-
-
-"""@app.route('/job',  methods=['GET', 'POST'])
-@login_required
-def add_job():
-    form = JobForm()
-    if form.validate_on_submit():
-        jobs = Jobs()
-        f1 = form.work_size.data <= 0
-        f2 = form.team_leader.data <= 0
-        f3 = not all([x.isnumeric() for x in form.collaborators.data.split(", ")])
-        if f1 or f2 or f3:
-            return render_template('job.html', title='Добавление работы', form=form)
-        db_sess = db_session.create_session()
-        jobs.job = form.job.data
-        jobs.team_leader = form.team_leader.data
-        jobs.work_size = form.work_size.data
-        jobs.collaborators = form.collaborators.data
-        jobs.is_finished = form.is_finished.data
-        db_sess.add(jobs)
-        db_sess.commit()
-        return redirect('/')
-    return render_template('job.html', title='Добавление работы', 
-                           form=form)"""
-
-
-"""@app.route('/news/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit_news(id):
-    form = NewsForm()
-    if request.method == "GET":
-        db_sess = db_session.create_session()
-        news = db_sess.query(News).filter(News.id == id,
-                                          News.user == current_user
-                                          ).first()
-        if news:
-            form.title.data = news.title
-            form.content.data = news.content
-            form.is_private.data = news.is_private
-        else:
-            abort(404)
-    if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        news = db_sess.query(News).filter(News.id == id,
-                                          News.user == current_user
-                                          ).first()
-        if news:
-            news.title = form.title.data
-            news.content = form.content.data
-            news.is_private = form.is_private.data
-            db_sess.commit()
-            return redirect('/')
-        else:
-            abort(404)
-    return render_template('news.html',
-                           title='Редактирование новости',
-                           form=form
-                           )"""
-
-
-"""@app.route('/news',  methods=['GET', 'POST'])
-@login_required
-def add_news():
-    form = NewsForm()
-    if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        news = News()
-        news.title = form.title.data
-        news.content = form.content.data
-        news.is_private = form.is_private.data
-        current_user.news.append(news)
-        db_sess.merge(current_user)
-        db_sess.commit()
-        return redirect('/')
-    return render_template('news.html', title='Добавление новости', 
-                           form=form)"""
 
 
 @app.route('/login', methods=['GET', 'POST'])
