@@ -38,4 +38,4 @@ class Date_picker:
 
 d2 = datetime(2022, 1, 15, 16, 17, 39)
 d1 = datetime(2020, 12, 14, 10, 1, 0)
-print(Date_picker.get_time(d1, d2))
+# print(Date_picker.get_time(d1, d2))

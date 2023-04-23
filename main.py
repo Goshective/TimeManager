@@ -10,17 +10,24 @@ from flask_login import (
     login_required, 
     current_user)
 from datetime import datetime
+import pandas as pd
+import json
+import plotly
+import plotly.express as px
+
 from data import db_session
 from data.users import User
 from data.records import Records
 from data.act_names import Activities_names
+
 from forms.users import RegisterForm
 from forms.login import LoginForm
 from forms.record import RecordForm
 from forms.activity import ActivityForm
+from forms.sum_report import ReportSumForm
+
 from config import *
 from functional_counting import Date_picker
-
 
 
 app = Flask(__name__)
@@ -29,15 +36,14 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 
 
-def get_remaining_time_handler(lst, db_sess):
+def get_remaining_time_handler(lst):
     ans = []
     for item in lst:
         dt = item.created_date
         remain = Date_picker.get_time(dt, datetime.now())
-        act_name = db_sess.query(Activities_names).filter(Activities_names.user == current_user, 
-                                                          Activities_names.id == Records.name_id).first()
-        work_time = f'{act_name.name} - затрачено {item.work_hours + item.work_min // 30} ч.'
-        ans.append((remain, work_time))
+        act_name = item.act_n.name
+        work_time = f'{act_name} - затрачено {item.work_hours + item.work_min // 30} ч.'
+        ans.append((item.id, remain, work_time))
     return ans
 
 
@@ -54,29 +60,30 @@ def index():
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
               'status_page': 0}
     if current_user.is_authenticated:
-        params['description1'] = 'Домашняя страница'
         params['description2'] = 'Тут можно записать время на активности и посмотреть простую статистику.'
         db_sess = db_session.create_session()
 
         form = RecordForm()
         params['form'] = form
-        activities = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
+        activities = db_sess.query(Activities_names).filter(
+            Activities_names.user == current_user).all()
         params['activities'] = activities
 
         form.activity.choices = [(item.id, item.name) for item in activities]
-        recs = db_sess.query(Records).filter(Records.user == current_user).all()[:3]
-        records_on_site = get_remaining_time_handler(recs, db_sess)
+        recs = db_sess.query(Records).filter(
+            Records.user == current_user).order_by(Records.created_date).all()[-3:]
+        records_on_site = get_remaining_time_handler(recs)
         params['records_list'] = records_on_site
 
 
-        print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data, form.validate_on_submit())
+        # print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data, form.validate_on_submit())
         if form.validate_on_submit():
             if form.work_hour.data < 0 or form.work_min.data < 0 or (form.work_hour.data == form.work_min.data == 0):
                 return render_template("index.html", error="Некорректное значение времени", **params)
 
             record = Records()
             record.name_id = form.activity.data
-            record.created_date = form.date.data if form.date.data else datetime.now()
+            record.created_date = datetime.now() if form.date.data == datetime.now().date() else form.date.data
             record.work_hours = form.work_hour.data
             record.work_min = form.work_min.data
             current_user.records.append(record)
@@ -85,6 +92,14 @@ def index():
             return redirect('/')
         # else: print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data)
     return render_template("index.html", error="", **params)
+
+@app.route('/cancel/<item_id>')
+def cancel(item_id):
+    if current_user.is_authenticated:
+        db_sess = db_session.create_session()
+        db_sess.query(Records).filter(Records.id == item_id).delete()
+        db_sess.commit()
+    return redirect('/')
 
 
 @app.route('/settings', methods=['GET', 'POST'])
@@ -119,11 +134,46 @@ def add_act():
     db_sess.commit()
     return {[item.name for item in db_sess.query(Activities_names).filter(Activities_names.user == current_user)]}"""
 
+@app.route('/reports_summary')
+def bar_with_plotly():
+    params = {'title': 'Суммарный отчет',
+              'description1': 'Суммарный отчет',
+              'description2': 'Сначала войдите в аккаунт или заведите новый.',
+              'status_page': 2}
+    if current_user.is_authenticated:
+        params['description2'] = 'Тут можно посмотреть чёткую статистику по суммарно проведенному времени.'
+        form = ReportSumForm()
+        db_sess = db_session.create_session()
 
-@app.route('/reports')
-def charts_reports():
-    params = {'status_page': 2}
-    return render_template("reports.html", **params)
+        if form.validate_on_submit():
+            pass
+        else:
+            recs = db_sess.query(Records).filter(Records.user == current_user).all()
+            """act_names_req = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
+            act_names = {}
+            for item in act_names_req:
+                act_names[item.id] = item.name"""
+            activities = [[item.act_n.name, item.work_hours + item.work_min/60, 'None'] for item in recs]
+            """activities = [['Прога', 34, 'Sydney'],
+                        ['Да', 30, 'Coimbatore'],
+                        ['Нет', 31, 'Coimbatore'],
+                        ['СИНТИПОП', 32, 'Tokyo'],
+                        ['Да', 16, 'New York'],
+                        ['Спорт', 17, 'Toronto']]"""
+            
+            # Convert list to dataframe and assign column values
+            df = pd.DataFrame(activities,
+                            columns=['Активность', 'Часы', 'Группа'])
+            
+            # Create Bar chart
+            fig = px.bar(df, x='Часы', y='Активность', color='Активность', barmode='group', orientation='h')
+            
+            # Create graphJSON
+            graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+        
+            # Use render_template to pass graphJSON to html
+        return render_template("reports_sum.html", graphJSON=graphJSON, **params)
+    return render_template("reports_sum.html", **params)
 
 
 """@app.route('/job',  methods=['GET', 'POST'])

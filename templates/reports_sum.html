@@ -1,0 +1,26 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="container">
+    <div class="starter-template">
+        <h1>{{description1}}</h1>
+        <p class="lead">{{description2}}</p>
+    </div>
+    {% if current_user.is_authenticated %}
+            <div id='chart' class='chart'></div>
+        <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+        <script type='text/javascript'>
+        var graphs = {{graphJSON | safe}};
+        Plotly.plot('chart',graphs,{});
+        </script>
+
+    {% else %}
+        <p>
+        <img src="{{url_for('static', filename='img/Time_picture.png')}}" 
+        alt="здесь должна была быть картинка, но не нашлась">
+        </p>
+    {% endif %}
+  </div>
+
+{% endblock %}
