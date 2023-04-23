@@ -1,12 +1,12 @@
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DateField, SelectMultipleField, SubmitField
+from wtforms import DateField, SelectMultipleField, SubmitField
 from wtforms.validators import DataRequired, Optional
-from datetime import datetime
+from functional_counting import date_max, date_min
 
 
 class ReportSumForm(FlaskForm):
-    from_date = DateField('С', format="%Y-%m-%d", validators=[Optional()], default=(datetime.min))
-    to_date = DateField('По', format="%Y-%m-%d", validators=[Optional()], default=datetime.now())
+    from_date = DateField('С какой даты', format="%Y-%m-%d", validators=[Optional()], default=date_min())
+    to_date = DateField('По какую дату', format="%Y-%m-%d", validators=[Optional()], default=date_max())
     activities = SelectMultipleField('Показываемые активности', validators=[DataRequired()])
-    to_default = BooleanField("Вернуть к обычному состоянию", default=False)
+    to_default = SubmitField("Сбросить параметры")
     submit = SubmitField('Подтвердить')

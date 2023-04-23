@@ -9,7 +9,7 @@ from flask_login import (
     logout_user, 
     login_required, 
     current_user)
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import json
 import plotly
@@ -71,7 +71,7 @@ def index():
 
         form.activity.choices = [(item.id, item.name) for item in activities]
         recs = db_sess.query(Records).filter(
-            Records.user == current_user).order_by(Records.created_date).all()[-3:]
+            Records.user == current_user).order_by(Records.id).all()[-3:]
         records_on_site = get_remaining_time_handler(recs)
         params['records_list'] = records_on_site
 
@@ -110,7 +110,7 @@ def settings():
     if current_user.is_authenticated:
         activity_form = ActivityForm()
         params['activity_form'] = activity_form
-        #print( activity_form.color.data,  activity_form.name.data, activity_form.validate_on_submit(), activity_form.errors)
+        # print( activity_form.color.data,  activity_form.name.data, activity_form.validate_on_submit(), activity_form.errors)
         if activity_form.validate_on_submit():
             db_sess = db_session.create_session()
             activities = Activities_names(name=activity_form.name.data)
@@ -134,26 +134,45 @@ def add_act():
     db_sess.commit()
     return {[item.name for item in db_sess.query(Activities_names).filter(Activities_names.user == current_user)]}"""
 
-@app.route('/reports_summary')
+@app.route('/reports_summary', methods=['GET', 'POST'])
 def bar_with_plotly():
     params = {'title': 'Суммарный отчет',
               'description1': 'Суммарный отчет',
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
+              'error': '',
               'status_page': 2}
     if current_user.is_authenticated:
         params['description2'] = 'Тут можно посмотреть чёткую статистику по суммарно проведенному времени.'
+
         form = ReportSumForm()
         db_sess = db_session.create_session()
 
-        if form.validate_on_submit():
-            pass
+        acts = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
+        lst_ch = [(str(item.id), item.name) for item in acts]
+        form.activities.choices = lst_ch
+        form.activities.default = lst_ch
+
+        params['form'] = form
+        print(form.submit.data, form.to_default.data)
+        to_default = False
+        if form.to_default.data: to_default = True
+        if form.validate_on_submit() and not to_default:
+            td = timedelta(1)
+            from_date = form.from_date.data if form.from_date.data else datetime.min
+            to_date = form.to_date.data + td if form.to_date.data else datetime.now() + td
+            acts_id = [int(x) for x in form.activities.data]
+
+            recs = db_sess.query(Records).filter(
+                Records.user == current_user,
+                from_date <= Records.created_date, 
+                Records.created_date < to_date,
+                Records.name_id.in_(acts_id)).all()
+
+            activities = [[item.act_n.name, item.work_hours + item.work_min / 60, 'None'] for item in recs]
         else:
+            # print(form.errors)
             recs = db_sess.query(Records).filter(Records.user == current_user).all()
-            """act_names_req = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
-            act_names = {}
-            for item in act_names_req:
-                act_names[item.id] = item.name"""
-            activities = [[item.act_n.name, item.work_hours + item.work_min/60, 'None'] for item in recs]
+            activities = [[item.act_n.name, item.work_hours + item.work_min / 60, 'None'] for item in recs]
             """activities = [['Прога', 34, 'Sydney'],
                         ['Да', 30, 'Coimbatore'],
                         ['Нет', 31, 'Coimbatore'],
@@ -162,14 +181,14 @@ def bar_with_plotly():
                         ['Спорт', 17, 'Toronto']]"""
             
             # Convert list to dataframe and assign column values
-            df = pd.DataFrame(activities,
-                            columns=['Активность', 'Часы', 'Группа'])
-            
-            # Create Bar chart
-            fig = px.bar(df, x='Часы', y='Активность', color='Активность', barmode='group', orientation='h')
-            
-            # Create graphJSON
-            graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+        df = pd.DataFrame(activities,
+                        columns=['Активность', 'Часы', 'Группа'])
+        
+        # Create Bar chart
+        fig = px.bar(df, x='Часы', y='Активность', color='Активность', barmode='group', orientation='h')
+        
+        # Create graphJSON
+        graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
         
             # Use render_template to pass graphJSON to html
         return render_template("reports_sum.html", graphJSON=graphJSON, **params)

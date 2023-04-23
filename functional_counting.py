@@ -32,10 +32,20 @@ class Date_picker:
     
     def get_time(t0, t1):
         time_s = int((t1 - t0).total_seconds())
-        if time_s == 0: return 'Только что'
-        return f'{Date_picker.time_string(abs(time_s))} {"назад" if time_s > 0 else "вперёд"}'.capitalize()
+        if time_s == 0:
+            return 'Только что'
+        elif time_s > 0:
+            return f'{Date_picker.time_string(abs(time_s))} назад'.capitalize()
+        return f'Через {Date_picker.time_string(abs(time_s))}'
+    
+
+def date_max():
+    return datetime.now()
+
+def date_min():
+    return datetime(datetime.now().year - 1, 1, 1)
 
 
-d2 = datetime(2022, 1, 15, 16, 17, 39)
+"""d2 = datetime(2022, 1, 15, 16, 17, 39)
 d1 = datetime(2020, 12, 14, 10, 1, 0)
-# print(Date_picker.get_time(d1, d2))
+print(Date_picker.get_time(d1, d2))"""
