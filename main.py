@@ -138,7 +138,7 @@ def add_act():
     return {[item.name for item in db_sess.query(Activities_names).filter(Activities_names.user == current_user)]}"""
 
 @app.route('/reports_all', methods=['GET', 'POST'])
-def bar_with_plotly():
+def bar_with_plotly2():
     params = {'title': 'Отчет по дням',
               'description1': 'Отчет по дням',
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
@@ -220,6 +220,16 @@ def login():
 def logout():
     logout_user()
     return redirect("/")
+
+
+@app.errorhandler(404)
+def not_found(error):
+    return render_template('error_404.html', title='Страница не найдена', error=error)
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('error_500.html', title='Ошибка сервера', error=error)
 
 
 @app.route('/register', methods=['GET', 'POST'])
