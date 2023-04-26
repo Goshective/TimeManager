@@ -39,17 +39,8 @@
                 <div class="col">
                   {{ form.to_default(type="submit", class="btn btn-warning") }}
                 </div>
-                {% if error != "" %}
-                  <div class="col">
-                    <div class="alert alert-danger" role="alert">
-                      {{error}}
-                    </div>
-                  </div>
-                {% endif %}
             </div>
         </form>
-
-
 
     {% else %}
         <p>

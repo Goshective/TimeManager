@@ -9,11 +9,12 @@ from flask_login import (
     logout_user, 
     login_required, 
     current_user)
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import pandas as pd
 import json
 import plotly
 import plotly.express as px
+import random
 
 from data import db_session
 from data.users import User
@@ -24,7 +25,7 @@ from forms.users import RegisterForm
 from forms.login import LoginForm
 from forms.record import RecordForm
 from forms.activity import ActivityForm
-from forms.sum_report import ReportSumForm
+from forms.sum_report import Report_chart_form
 
 from config import *
 from functional_counting import Date_picker
@@ -34,6 +35,56 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+HORIZONTAL_BAR = 0
+MULTI_BAR = 1
+
+def get_chart_recs(chart_type, params):
+    if chart_type == HORIZONTAL_BAR:
+        params['description2'] = 'Тут можно посмотреть чёткую статистику по суммарно проведённому времени.'
+    else:
+        params['description2'] = 'Тут можно посмотреть отчёт о проведённом времени за каждый день.'
+
+    form = Report_chart_form()
+    db_sess = db_session.create_session()
+
+    acts = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
+    lst_ch = [(str(item.id), item.name) for item in acts]
+    form.activities.choices = lst_ch
+
+    params['form'] = form
+    print(form.submit.data, form.to_default.data)
+    to_default = False
+    if form.to_default.data: to_default = True
+    if form.validate_on_submit() and not to_default:
+        td = timedelta(1)
+        from_date = form.from_date.data if form.from_date.data else datetime.min
+        to_date = form.to_date.data + td if form.to_date.data else datetime.now() + td
+        acts_id = [int(x) for x in form.activities.data]
+
+        if chart_type == HORIZONTAL_BAR:
+            recs = db_sess.query(Records).filter(
+                Records.user == current_user,
+                from_date <= Records.created_date, 
+                Records.created_date < to_date,
+                Records.name_id.in_(acts_id)).all()
+        else:
+            recs = db_sess.query(Records).filter(
+                Records.user == current_user,
+                from_date <= Records.created_date, 
+                Records.created_date < to_date,
+                Records.name_id.in_(acts_id)).order_by(
+                Records.created_date).all()
+    else:
+        if chart_type == HORIZONTAL_BAR:
+            recs = db_sess.query(Records).filter(
+                Records.user == current_user).all()
+        else:
+            recs = db_sess.query(Records).filter(
+                Records.user == current_user).order_by(
+                Records.created_date).all()
+
+    return recs, params
 
 
 def get_remaining_time_handler(lst):
@@ -45,6 +96,7 @@ def get_remaining_time_handler(lst):
         work_time = f'{act_name} - затрачено {item.work_hours + item.work_min // 30} ч.'
         ans.append((item.id, remain, work_time))
     return ans
+    
 
 
 @login_manager.user_loader
@@ -58,6 +110,7 @@ def index():
     params = {'title': 'Домашняя страница',
               'description1': 'Домашняя страница',
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
+              'error': '',
               'status_page': 0}
     if current_user.is_authenticated:
         params['description2'] = 'Тут можно записать время на активности и посмотреть простую статистику.'
@@ -74,6 +127,7 @@ def index():
             Records.user == current_user).order_by(Records.id).all()[-3:]
         records_on_site = get_remaining_time_handler(recs)
         params['records_list'] = records_on_site
+        db_sess.close()
 
 
         # print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data, form.validate_on_submit())
@@ -90,12 +144,14 @@ def index():
 
             record.work_hours = form.work_hour.data
             record.work_min = form.work_min.data
+            db_sess = db_session.create_session()
+            db_sess.add(current_user)
             current_user.records.append(record)
             db_sess.merge(current_user)
             db_sess.commit()
             return redirect('/')
         # else: print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data)
-    return render_template("index.html", error="", **params)
+    return render_template("index.html", **params)
 
 
 @app.route('/cancel/<int:item_id>')
@@ -138,64 +194,72 @@ def add_act():
     return {[item.name for item in db_sess.query(Activities_names).filter(Activities_names.user == current_user)]}"""
 
 @app.route('/reports_all', methods=['GET', 'POST'])
-def bar_with_plotly2():
+def multi_bar():
     params = {'title': 'Отчет по дням',
               'description1': 'Отчет по дням',
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
-              'error': '',
               'status_page': 3}
     if current_user.is_authenticated:
-        params['description2'] = 'Тут можно посмотреть чёткую статистику по суммарно проведенному времени.'
-    return render_template("reports_all.html", **params)
+        """dt = datetime(2022, 2, 2)  # comment from
+        acts = ['Пузение', 'Жужжание', 'Лежание', 'Поедание']
+
+        for i in range(100):
+            dt += timedelta(days=1)
+            for _ in range(random.randint(1,6)):
+              a = random.choice(acts)
+              t = random.random()*3
+              data.append([dt, a, t])  # comment to (in get charts)"""
+        recs, params = get_chart_recs(MULTI_BAR, params)
+        data = []
+        for record in recs:
+            a = record.act_n.name
+            t = round(record.work_hours + record.work_min/60, 2)
+            data.append([record.created_date.date(), a, t])
+
+        # Convert list to dataframe and assign column values
+        df = pd.DataFrame(data, columns=['Дата', 'Активность', 'Часы'])
+        adj = df.groupby(['Дата','Активность'])['Часы'].sum().reset_index()
+        print(adj)
+        # Create Bar chart
+        fig = px.bar(adj, x='Дата', y='Часы', color='Активность', barmode='stack')
+        
+        fig.update_layout(xaxis=dict(tickformat="%d.%m.%y"))
+        #fig.update_xaxes(nticks=df['Дата'].nunique()) 
+
+        # Create graphJSON
+        graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+        
+        # Use render_template to pass graphJSON to html
+        return render_template('reports_sum.html', graphJSON=graphJSON, success='Done', **params)
+    return render_template("reports_sum.html", **params)
 
 
 @app.route('/reports_summary', methods=['GET', 'POST'])
-def bar_with_plotly():
+def horizontal_bar():
     params = {'title': 'Суммарный отчет',
               'description1': 'Суммарный отчет',
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
               'error': '',
               'status_page': 2}
     if current_user.is_authenticated:
-        params['description2'] = 'Тут можно посмотреть чёткую статистику по суммарно проведенному времени.'
-
-        form = ReportSumForm()
-        db_sess = db_session.create_session()
-
-        acts = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
-        lst_ch = [(str(item.id), item.name) for item in acts]
-        form.activities.choices = lst_ch
-
-        params['form'] = form
-        print(form.submit.data, form.to_default.data)
-        to_default = False
-        if form.to_default.data: to_default = True
-        if form.validate_on_submit() and not to_default:
-            td = timedelta(1)
-            from_date = form.from_date.data if form.from_date.data else datetime.min
-            to_date = form.to_date.data + td if form.to_date.data else datetime.now() + td
-            acts_id = [int(x) for x in form.activities.data]
-
-            recs = db_sess.query(Records).filter(
-                Records.user == current_user,
-                from_date <= Records.created_date, 
-                Records.created_date < to_date,
-                Records.name_id.in_(acts_id)).all()
-        else:
-            recs = db_sess.query(Records).filter(Records.user == current_user).all()
+        recs, params = get_chart_recs(HORIZONTAL_BAR, params)
 
         activities = [[item.act_n.name, item.work_hours + item.work_min / 60, 'None'] for item in recs]
         """activities = [['Прога', 34, 'Sydney'], ... , ['Спорт', 17, 'Toronto']]"""
-            
-            # Convert list to dataframe and assign column values
+
         df = pd.DataFrame(activities,
                         columns=['Активности', 'Часы', 'Группа'])
-        # Create Bar chart
         fig = px.bar(df, x='Часы', y='Активности', color='Активности', barmode='group', orientation='h')
-        # Create graphJSON
+
+        ttl = df.groupby(['Активности'])['Часы'].sum()
+        values = [v for v in ttl]
+        keys = list(ttl.keys())
+        zipped = zip(keys, values)
+
+        total_labels = [{"x": data, "y": name, "text": f'{data:.2f}', "showarrow": False} for name, data in zipped]
+        fig.update_layout(annotations=total_labels)
         graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
         
-            # Use render_template to pass graphJSON to html
         return render_template("reports_sum.html", graphJSON=graphJSON, **params)
     return render_template("reports_sum.html", **params)
 
@@ -229,7 +293,7 @@ def not_found(error):
 
 @app.errorhandler(500)
 def internal_error(error):
-    return render_template('error_500.html', title='Ошибка сервера', error=error)
+    return render_template('error_500.html', title='Oшибка сервера', error=error)
 
 
 @app.route('/register', methods=['GET', 'POST'])

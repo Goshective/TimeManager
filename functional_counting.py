@@ -33,7 +33,7 @@ class Date_picker:
     def get_time(t0, t1):
         time_s = int((t1 - t0).total_seconds())
         if time_s == 0:
-            return 'Только что'
+            return 'Сегодня'
         elif time_s > 0:
             return f'{Date_picker.time_string(abs(time_s))} назад'.capitalize()
         return f'Через {Date_picker.time_string(abs(time_s))}'

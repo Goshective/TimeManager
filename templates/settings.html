@@ -6,52 +6,59 @@
     <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='css/y_form.css')}}" />
   </head>
   <div class="container">
+    {% if current_user.is_authenticated %}
     <h1>Пользовательские настройки</h1>
-      <div class="accordion" id="accordionPanelsStayOpenExample">
-        <div class="accordion-item">
-          <h2 class="accordion-header">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseOne" aria-expanded="true" aria-controls="panelsStayOpen-collapseOne">
-              Добавление новой активности
-            </button>
-          </h2>
-          <div id="panelsStayOpen-collapseOne" class="accordion-collapse collapse show">
-            <div class="accordion-body">
-              <form class="input-group container" method="post">
-                {{ activity_form.hidden_tag() }}
-                <div class="input-group mb-3">
-                  <div class="col">
-                    <p> {{ activity_form.color.label }}: {{ activity_form.color() }}</p>
-                  </div>
-                  <div class="col">
-                    <label for="floatingInput">{{ activity_form.name.label }}</label>
-                    {{ activity_form.name(class="form-control", id="floatingInput") }}
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="col">
-                      {{ activity_form.submit(type="submit", class="btn btn-primary") }}
-                  </div>
-                  {% if error != "" %}
-                    <div class="alert alert-danger" role="alert">
-                      {{error}}
+        <div class="accordion" id="accordionPanelsStayOpenExample">
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseOne" aria-expanded="true" aria-controls="panelsStayOpen-collapseOne">
+                Добавление новой активности
+              </button>
+            </h2>
+            <div id="panelsStayOpen-collapseOne" class="accordion-collapse collapse show">
+              <div class="accordion-body">
+                <form class="input-group container" method="post">
+                  {{ activity_form.hidden_tag() }}
+                  <div class="input-group mb-3">
+                    <div class="col">
+                      <p> {{ activity_form.color.label }}: {{ activity_form.color() }}</p>
                     </div>
-                  {% endif %}
-              </form>
+                    <div class="col">
+                      <label for="floatingInput">{{ activity_form.name.label }}</label>
+                      {{ activity_form.name(class="form-control", id="floatingInput") }}
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="col">
+                        {{ activity_form.submit(type="submit", class="btn btn-primary") }}
+                    </div>
+                    {% if error != "" %}
+                      <div class="alert alert-danger" role="alert">
+                        {{error}}
+                      </div>
+                    {% endif %}
+                </form>
+              </div>
+            </div>
+          </div>
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseTwo" aria-expanded="false" aria-controls="panelsStayOpen-collapseTwo">
+                Изменение активностей
+              </button>
+            </h2>
+            <div id="panelsStayOpen-collapseTwo" class="accordion-collapse collapse">
+              <div class="accordion-body">
+                Ты думал, здесь что-то будет?
+              </div>
             </div>
           </div>
         </div>
-        <div class="accordion-item">
-          <h2 class="accordion-header">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseTwo" aria-expanded="false" aria-controls="panelsStayOpen-collapseTwo">
-              Изменение активностей
-            </button>
-          </h2>
-          <div id="panelsStayOpen-collapseTwo" class="accordion-collapse collapse">
-            <div class="accordion-body">
-              Ты думал, здесь что-то будет?
-            </div>
-          </div>
-        </div>
-      </div>
+    {% else %}
+        <p>
+        <img src="{{url_for('static', filename='img/Time_picture.png')}}" 
+        alt="здесь должна была быть картинка, но не нашлась">
+        </p>
+    {% endif %}
   </div>
 {% endblock %}
