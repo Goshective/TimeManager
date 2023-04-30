@@ -18,23 +18,23 @@
             <div id="panelsStayOpen-collapseOne" class="accordion-collapse collapse show">
               <div class="accordion-body">
                 <form class="input-group container" method="post">
-                  {{ activity_form.hidden_tag() }}
+                  {{ activity_form_add.hidden_tag() }}
                   <div class="input-group mb-3">
                     <div class="col">
-                      <p> {{ activity_form.color.label }}: {{ activity_form.color() }}</p>
+                      <p> {{ activity_form_add.color.label }}: {{ activity_form_add.color() }}</p>
                     </div>
                     <div class="col">
-                      <label for="floatingInput">{{ activity_form.name.label }}</label>
-                      {{ activity_form.name(class="form-control", id="floatingInput") }}
+                      <label for="floatingInput">{{ activity_form_add.name.label }}</label>
+                      {{ activity_form_add.name(class="form-control", id="floatingInput") }}
                     </div>
                   </div>
-                  <div class="row">
+                  <div class="input-group mb-3">
                     <div class="col">
-                        {{ activity_form.submit(type="submit", class="btn btn-primary") }}
+                        {{ activity_form_add.submit(type="submit", class="btn btn-primary") }}
                     </div>
-                    {% if error != "" %}
+                    {% if error_add_form %}
                       <div class="alert alert-danger" role="alert">
-                        {{error}}
+                        {{error_add_form}}
                       </div>
                     {% endif %}
                 </form>
@@ -49,7 +49,36 @@
             </h2>
             <div id="panelsStayOpen-collapseTwo" class="accordion-collapse collapse">
               <div class="accordion-body">
-                Ты думал, здесь что-то будет?
+                NO
+              </div>
+            </div>
+          </div>
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseThree" aria-expanded="false" aria-controls="panelsStayOpen-collapseTwo">
+                Изменить фото профиля
+              </button>
+            </h2>
+            <div id="panelsStayOpen-collapseThree" class="accordion-collapse collapse">
+              <div class="accordion-body">
+                <form class="input-group container" method="post" enctype="multipart/form-data">
+                  {{ photo_form.hidden_tag() }}
+                  <div class="input-group mb-3">
+                    <div class="col">
+                      <label>{{ photo_form.photo.label }}</label>
+                      <p> {{ photo_form.photo(class="form-control")}}</p>
+                    </div>
+                  </div>
+                  <div class="input-group mb-3">
+                    <div class="col">
+                        {{ photo_form.submit(type="submit", class="btn btn-primary") }}
+                    </div>
+                    {% if error_photo %}
+                      <div class="alert alert-danger" role="alert">
+                        {{error_photo}}
+                      </div>
+                    {% endif %}
+                </form>
               </div>
             </div>
           </div>

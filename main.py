@@ -1,8 +1,9 @@
 from flask import (
     Flask, 
     render_template, 
-    redirect, abort, 
-    request)
+    redirect, 
+    request, 
+    make_response)
 from flask_login import (
     LoginManager, 
     login_user, 
@@ -14,21 +15,24 @@ import pandas as pd
 import json
 import plotly
 import plotly.express as px
-import random
+# import random
 
 from data import db_session
 from data.users import User
 from data.records import Records
 from data.act_names import Activities_names
+from data.pictures import Pictures
 
 from forms.users import RegisterForm
 from forms.login import LoginForm
 from forms.record import RecordForm
-from forms.activity import ActivityForm
+from forms.activity_add import Activity_add_form
+from forms.photo_form import PhotoForm
 from forms.sum_report import Report_chart_form
 
 from config import *
 from functional_counting import Date_picker
+from form_parser import *
 
 
 app = Flask(__name__)
@@ -83,8 +87,7 @@ def get_chart_recs(chart_type, params):
             recs = db_sess.query(Records).filter(
                 Records.user == current_user).order_by(
                 Records.created_date).all()
-
-    return recs, params
+    return recs, params, db_sess
 
 
 def get_remaining_time_handler(lst):
@@ -101,8 +104,8 @@ def get_remaining_time_handler(lst):
 
 @login_manager.user_loader
 def load_user(user_id):
-    db_sess = db_session.create_session()
-    return db_sess.query(User).get(user_id)
+    with db_session.create_session() as db_sess:
+        return db_sess.query(User).get(user_id)
 
 
 @app.route("/",  methods=['GET', 'POST'])
@@ -149,6 +152,7 @@ def index():
             current_user.records.append(record)
             db_sess.merge(current_user)
             db_sess.commit()
+            db_sess.close()
             return redirect('/')
         # else: print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data)
     return render_template("index.html", **params)
@@ -160,24 +164,41 @@ def cancel(item_id):
         db_sess = db_session.create_session()
         db_sess.query(Records).filter(Records.id == item_id).delete()
         db_sess.commit()
+        db_sess.close()
     return redirect('/')
 
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     params = {'status_page': 1,
-              'title': 'Настройки',
-              'error': ""}
-    if current_user.is_authenticated:
-        activity_form = ActivityForm()
-        params['activity_form'] = activity_form
-        if activity_form.validate_on_submit():
-            db_sess = db_session.create_session()
-            activities = Activities_names(name=activity_form.name.data)  # and add color
-            current_user.act_names.append(activities)
-            db_sess.merge(current_user)
-            db_sess.commit()
-            return redirect('/settings')
+              'title': 'Настройки'}
+    if not current_user.is_authenticated:
+        return render_template("settings.html", **params)
+
+    activity_form_add = Activity_add_form()
+    params['activity_form_add'] = activity_form_add
+
+    photo_form = PhotoForm()
+    params['photo_form'] = photo_form
+
+    if 'submit' in request.form and request.method == 'POST':
+        name = request.form['submit']
+        if name == 'Загрузить':
+            """if not photo_form.validate_on_submit():
+                print('error:', photo_form.errors)"""
+            code, ans = add_photo(photo_form, current_user)
+            if code == 0:
+                return ans
+            else:
+                params['error_photo'] = ans
+
+        elif name == 'Добавить':
+            code, ans = add_activity(activity_form_add, current_user)
+            if code == 0:
+                return ans
+            else:
+                params['error_add_form'] = ans
+    
     return render_template("settings.html", **params)
 
 
@@ -209,7 +230,7 @@ def multi_bar():
               a = random.choice(acts)
               t = random.random()*3
               data.append([dt, a, t])  # comment to (in get charts)"""
-        recs, params = get_chart_recs(MULTI_BAR, params)
+        recs, params, db_sess = get_chart_recs(MULTI_BAR, params)
         data = []
         for record in recs:
             a = record.act_n.name
@@ -229,6 +250,7 @@ def multi_bar():
         # Create graphJSON
         graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
         
+        db_sess.close()
         # Use render_template to pass graphJSON to html
         return render_template('reports_sum.html', graphJSON=graphJSON, success='Done', **params)
     return render_template("reports_sum.html", **params)
@@ -242,7 +264,7 @@ def horizontal_bar():
               'error': '',
               'status_page': 2}
     if current_user.is_authenticated:
-        recs, params = get_chart_recs(HORIZONTAL_BAR, params)
+        recs, params, db_sess = get_chart_recs(HORIZONTAL_BAR, params)
 
         activities = [[item.act_n.name, item.work_hours + item.work_min / 60, 'None'] for item in recs]
         """activities = [['Прога', 34, 'Sydney'], ... , ['Спорт', 17, 'Toronto']]"""
@@ -259,23 +281,55 @@ def horizontal_bar():
         total_labels = [{"x": data, "y": name, "text": f'{data:.2f}', "showarrow": False} for name, data in zipped]
         fig.update_layout(annotations=total_labels)
         graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+        db_sess.close()
         
         return render_template("reports_sum.html", graphJSON=graphJSON, **params)
     return render_template("reports_sum.html", **params)
 
 
+@app.route('/profile_image')
+def profile_image():
+    if current_user.is_authenticated:
+        db_sess = db_session.create_session()
+        image = db_sess.query(Pictures).get(current_user.id)
+        response = make_response(image.data)
+        response.headers.set('Content-Type', 'image/jpeg')
+        response.headers.set(
+            'Content-Disposition', 'attachment', filename=f'{image.user_id}.jpg')
+        db_sess.close()
+        return response
+    return None
+
+@app.route('/profile')
+def profile_page():
+    params = {'title': 'Профиль',
+              'description1': 'Профиль пользователя',
+              'description2': 'Сначала войдите в аккаунт или заведите новый.',
+              'status_page': 4}
+    if current_user.is_authenticated:
+        params['description2'] = ''
+        db_sess = db_session.create_session()
+        params['username'] = current_user.name
+        params['date'] = current_user.created_date.strftime('%d/%m/%Y, %H:%M:%S')
+        params['all_time'] = str(
+            round(sum([item.work_hours + item.work_min/60 
+            for item in db_sess.query(Records).filter(
+            Records.user == current_user).all()]), 2))
+        db_sess.close()
+    return render_template('profile.html', **params)
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        db_sess = db_session.create_session()
-        user = db_sess.query(User).filter(User.login == form.login.data).first()
-        if user and user.check_password(form.password.data):
-            login_user(user, remember=form.remember_me.data)
-            return redirect("/")
-        return render_template('login.html',
-                               message="Неправильный логин или пароль",
-                               form=form)
+        with db_session.create_session() as db_sess:
+            user = db_sess.query(User).filter(User.login == form.login.data).first()
+            if user and user.check_password(form.password.data):
+                login_user(user, remember=form.remember_me.data)
+                return redirect("/")
+            return render_template('login.html',
+                                message="Неправильный логин или пароль",
+                                form=form)
     return render_template('login.html', title='Авторизация', form=form)
 
 
@@ -286,16 +340,6 @@ def logout():
     return redirect("/")
 
 
-@app.errorhandler(404)
-def not_found(error):
-    return render_template('error_404.html', title='Страница не найдена', error=error)
-
-
-@app.errorhandler(500)
-def internal_error(error):
-    return render_template('error_500.html', title='Oшибка сервера', error=error)
-
-
 @app.route('/register', methods=['GET', 'POST'])
 def reqister():
     form = RegisterForm()
@@ -304,17 +348,27 @@ def reqister():
             return render_template('register.html', title='Регистрация',
                                    form=form,
                                    message="Пароли не совпадают")
-        db_sess = db_session.create_session()
-        if db_sess.query(User).filter(User.login == form.login.data).first():
-            return render_template('register.html', title='Регистрация',
-                                   form=form,
-                                   message="Такой пользователь уже есть")
-        user = User(name=form.name.data, login=form.login.data)
-        user.set_password(form.password.data)
-        db_sess.add(user)
-        db_sess.commit()
+        with db_session.create_session() as db_sess:
+            if db_sess.query(User).filter(User.login == form.login.data).first():
+                return render_template('register.html', title='Регистрация',
+                                    form=form,
+                                    message="Такой пользователь уже есть")
+            user = User(name=form.name.data, login=form.login.data)
+            user.set_password(form.password.data)
+            db_sess.add(user)
+            db_sess.commit()
         return redirect('/login')
     return render_template('register.html', title='Регистрация', form=form)
+
+
+@app.errorhandler(404)
+def not_found(error):
+    return render_template('error_404.html', title='Страница не найдена', error=error)
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('error_500.html', title='Oшибка сервера', error=error)
 
 
 def main():

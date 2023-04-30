@@ -38,6 +38,9 @@
         <li class="nav-item">
           <a class="{{'nav-link active' if status_page == 3 else 'nav-link'}}" href="/reports_all">Отчеты по продолжительности</a>
         </li>
+        <li class="nav-item">
+          <a class="{{'nav-link active' if status_page == 4 else 'nav-link'}}" href="/profile">Профиль</a>
+        </li>
       </ul>
       <div>
         {% if current_user.is_authenticated %}

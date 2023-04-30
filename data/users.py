@@ -18,6 +18,7 @@ class User(SqlAlchemyBase, UserMixin):
                                      default=datetime.datetime.now)
     records = orm.relationship("Records", back_populates='user')
     act_names = orm.relationship("Activities_names", back_populates='user')
+    picture = orm.relationship("Pictures", uselist=False, back_populates='user')
 
     def set_password(self, password):
         self.hashed_password = generate_password_hash(password)
