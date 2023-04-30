@@ -3,19 +3,21 @@ from flask import (
     render_template, 
     redirect, 
     request, 
-    make_response)
+    make_response,)
 from flask_login import (
     LoginManager, 
     login_user, 
     logout_user, 
     login_required, 
     current_user)
-from datetime import date, datetime, timedelta
+from flask_restful import Api
+from datetime import datetime, timedelta
 import pandas as pd
 import json
 import plotly
 import plotly.express as px
-# import random
+import random
+import string
 
 from data import db_session
 from data.users import User
@@ -30,6 +32,8 @@ from forms.activity_add import Activity_add_form
 from forms.photo_form import PhotoForm
 from forms.sum_report import Report_chart_form
 
+from data.api_records import RecordsListResource, RecordsResource
+
 from config import *
 from functional_counting import Date_picker
 from form_parser import *
@@ -37,6 +41,11 @@ from form_parser import *
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
+api = Api(app)
+
+api.add_resource(RecordsListResource, '/api/records/<string:token>')
+api.add_resource(RecordsResource, '/api/records/<string:token>/<int:record_id>')
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 
@@ -99,6 +108,9 @@ def get_remaining_time_handler(lst):
         work_time = f'{act_name} - затрачено {item.work_hours + item.work_min // 30} ч.'
         ans.append((item.id, remain, work_time))
     return ans
+
+def get_token(n):
+    return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(n))
     
 
 
@@ -309,6 +321,7 @@ def profile_page():
     if current_user.is_authenticated:
         params['description2'] = ''
         db_sess = db_session.create_session()
+        params['login'] = current_user.login
         params['username'] = current_user.name
         params['date'] = current_user.created_date.strftime('%d/%m/%Y, %H:%M:%S')
         params['all_time'] = str(
@@ -353,7 +366,7 @@ def reqister():
                 return render_template('register.html', title='Регистрация',
                                     form=form,
                                     message="Такой пользователь уже есть")
-            user = User(name=form.name.data, login=form.login.data)
+            user = User(name=form.name.data, login=form.login.data, token=get_token(40))
             user.set_password(form.password.data)
             db_sess.add(user)
             db_sess.commit()
