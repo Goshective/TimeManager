@@ -37,6 +37,37 @@
                 </div>
                 </div>
         </div>
+        <div class="accordion" id="accordionPanelsStayOpenExample">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseTwo" aria-expanded="false" aria-controls="panelsStayOpen-collapseTwo">
+                    Просмотреть/изменить токен для API
+                  </button>
+                </h2>
+                <div id="panelsStayOpen-collapseTwo" class="accordion-collapse collapse">
+                  <div class="accordion-body">
+                  <form class="input-group container" method="post">
+                    {{ form.hidden_tag() }}
+                    <div class="input-group mb-3">
+                      <div class="col">
+                          {{ form.submit(type="submit", class="btn btn-primary") }}
+                      </div>
+                      <div class="col">
+                        <div class="alert alert-dark" role="alert">
+                            {{token}}
+                          </div>
+                      </div>
+                    </div>
+                      {% if error_add_form %}
+                        <div class="alert alert-danger" role="alert">
+                          {{error_add_form}}
+                        </div>
+                      {% endif %}
+                  </form>
+                </div>
+              </div>
+            </div>
+        </div>
        {% else %}
         <p>
             <img src="{{url_for('static', filename='img/Time_picture.png')}}" 

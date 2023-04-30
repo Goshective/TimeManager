@@ -28,9 +28,10 @@ from data.pictures import Pictures
 from forms.users import RegisterForm
 from forms.login import LoginForm
 from forms.record import RecordForm
-from forms.activity_add import Activity_add_form
+from forms.activity_add import ActivityAddForm
 from forms.photo_form import PhotoForm
-from forms.sum_report import Report_chart_form
+from forms.sum_report import ReportChartForm
+from forms.token import TokenForm
 
 from data.api_records import RecordsListResource, RecordsResource
 
@@ -51,6 +52,7 @@ login_manager.init_app(app)
 
 HORIZONTAL_BAR = 0
 MULTI_BAR = 1
+N_SYMBOLS = 40
 
 def get_chart_recs(chart_type, params):
     if chart_type == HORIZONTAL_BAR:
@@ -58,7 +60,7 @@ def get_chart_recs(chart_type, params):
     else:
         params['description2'] = 'Тут можно посмотреть отчёт о проведённом времени за каждый день.'
 
-    form = Report_chart_form()
+    form = ReportChartForm()
     db_sess = db_session.create_session()
 
     acts = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
@@ -187,7 +189,7 @@ def settings():
     if not current_user.is_authenticated:
         return render_template("settings.html", **params)
 
-    activity_form_add = Activity_add_form()
+    activity_form_add = ActivityAddForm()
     params['activity_form_add'] = activity_form_add
 
     photo_form = PhotoForm()
@@ -312,22 +314,34 @@ def profile_image():
         return response
     return None
 
-@app.route('/profile')
+@app.route('/profile', methods=['GET', 'POST'])
 def profile_page():
     params = {'title': 'Профиль',
               'description1': 'Профиль пользователя',
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
               'status_page': 4}
     if current_user.is_authenticated:
+        form = TokenForm()
+
+        params['form'] = form
         params['description2'] = ''
-        db_sess = db_session.create_session()
         params['login'] = current_user.login
         params['username'] = current_user.name
         params['date'] = current_user.created_date.strftime('%d/%m/%Y, %H:%M:%S')
+
+        db_sess = db_session.create_session()
+        db_sess.add(current_user)
+
         params['all_time'] = str(
             round(sum([item.work_hours + item.work_min/60 
             for item in db_sess.query(Records).filter(
             Records.user == current_user).all()]), 2))
+        if 'submit' in request.form and request.method == 'POST':
+            current_user.token = get_token(N_SYMBOLS)
+            db_sess.commit()
+            return redirect('/profile')
+        else:
+            params['token'] = current_user.token
         db_sess.close()
     return render_template('profile.html', **params)
 
@@ -366,7 +380,7 @@ def reqister():
                 return render_template('register.html', title='Регистрация',
                                     form=form,
                                     message="Такой пользователь уже есть")
-            user = User(name=form.name.data, login=form.login.data, token=get_token(40))
+            user = User(name=form.name.data, login=form.login.data, token=get_token(N_SYMBOLS))
             user.set_password(form.password.data)
             db_sess.add(user)
             db_sess.commit()
