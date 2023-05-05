@@ -44,8 +44,8 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
 api = Api(app)
 
-api.add_resource(RecordsListResource, '/api/records/<string:token>')
-api.add_resource(RecordsResource, '/api/records/<string:token>/<int:record_id>')
+api.add_resource(RecordsListResource, '/api/records')
+api.add_resource(RecordsResource, '/api/records/<int:record_id>')
 
 login_manager = LoginManager()
 login_manager.init_app(app)

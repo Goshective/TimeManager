@@ -1,4 +1,4 @@
-from flask import abort, jsonify
+from flask import abort, jsonify, request
 from flask_restful import abort, Resource
 
 from data.db_session import *
@@ -39,14 +39,16 @@ def abort_if_record_cant_be_posted(args, token):
 
 
 class RecordsResource(Resource):
-    def get(self, token, record_id):
+    def get(self, record_id):
+        token = request.headers['X-AuthToken']
         session, record = abort_if_record_not_found(token, record_id)
         js = jsonify({'records': record.to_dict(
-            only=('user.login', 'act_n.name', 'work_hours', 'work_min', 'created_date'))})
+            only=('id', 'user.login', 'act_n.name', 'work_hours', 'work_min', 'created_date'))})
         session.close()
         return js
 
-    def delete(self, token, record_id):
+    def delete(self, record_id):
+        token = request.headers['X-AuthToken']
         session, record = abort_if_record_not_found(token, record_id)
         session.delete(record)
         session.commit()
@@ -55,17 +57,18 @@ class RecordsResource(Resource):
     
 
 class RecordsListResource(Resource):
-    def get(self, token):
+    def get(self):
+        token = request.headers['X-AuthToken']
         session, user = abort_if_records_not_found(token)
         records = session.query(Records).filter(Records.user == user).all()
         js = jsonify({'records': [item.to_dict(
-            only=('user.login', 'act_n.name', 'work_hours', 'work_min', 'created_date')) for item in records]})
+            only=('id', 'user.login', 'act_n.name', 'work_hours', 'work_min', 'created_date')) for item in records]})
         session.close()
         return js
 
-    def post(self, token):
+    def post(self):
         args = parser.parse_args()
-        
+        token = request.headers['X-AuthToken']
         session, user, activity = abort_if_record_cant_be_posted(args, token)
         records = Records(
             name_id=activity.id,

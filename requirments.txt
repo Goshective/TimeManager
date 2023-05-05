@@ -1,8 +1,0 @@
-Flask==2.2.3
-flask_login==0.6.2
-flask_wtf==1.1.1
-pandas==1.5.3
-plotly==5.13.1
-SQLAlchemy==2.0.10
-Werkzeug==2.2.3
-WTForms==3.0.1
