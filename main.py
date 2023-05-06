@@ -38,7 +38,7 @@ from forms.token import TokenForm
 
 from data.api_records import RecordsListResource, RecordsResource
 
-from config import *
+from config import SECRET_KEY
 from functional_counting import Date_picker
 from form_parser import *
 
@@ -318,7 +318,8 @@ def multi_bar():
         # Create Bar chart
         """color_discrete_sequence = [None]*len(adj)
         color_discrete_sequence[5] = "#000000" """
-        fig = px.bar(adj, x='Дата', y='Часы', color='Активность', color_discrete_sequence=act_colors, barmode='stack')
+        fig = px.bar(adj, x='Дата', y='Часы', color='Активность', 
+                     color_discrete_sequence=act_colors, barmode='stack')
         
         fig.update_layout(xaxis=dict(tickformat="%d.%m.%y"))
         #fig.update_xaxes(nticks=df['Дата'].nunique()) 
@@ -341,13 +342,20 @@ def horizontal_bar():
               'status_page': 2}
     if current_user.is_authenticated:
         recs, params, db_sess = get_chart_recs(HORIZONTAL_BAR, params)
-
-        activities = [[item.act_n.name, item.work_hours + item.work_min / 60, 'None'] for item in recs]
-        """activities = [['Прога', 34, 'Sydney'], ... , ['Спорт', 17, 'Toronto']]"""
+        activities = []
+        act_names = []
+        act_colors = []
+        for item in recs:
+            a, c = item.act_n.name, item.act_n.color
+            activities.append([item.act_n.name, item.work_hours + item.work_min / 60, 'None'])
+            if a not in act_names:
+                act_names.append(a)
+                act_colors.append(c)
 
         df = pd.DataFrame(activities,
                         columns=['Активности', 'Часы', 'Группа'])
-        fig = px.bar(df, x='Часы', y='Активности', color='Активности', barmode='group', orientation='h')
+        fig = px.bar(df, x='Часы', y='Активности', color='Активности', 
+                     barmode='group', color_discrete_sequence=act_colors, orientation='h')
 
         ttl = df.groupby(['Активности'])['Часы'].sum()
         values = [v for v in ttl]
