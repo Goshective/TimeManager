@@ -12,8 +12,8 @@
        <div class="col-sm-4">
          <div class="card">
            <div class="card-body">
-             <h5 class="card-title">Всего записей за эту неделю</h5>
-             <h1 class="card-text" style="color:green">17ч 30м</h1>
+             <h5 class="card-title">Всего времени за эту неделю</h5>
+             <h1 class="card-text" style="color:green">{{week_time[0]}} ч. {{week_time[1]}} мин.</h1>
            </div>
          </div>
        </div>
@@ -21,15 +21,15 @@
          <div class="card">
            <div class="card-body">
              <h5 class="card-title">Всего времени записано</h5>
-             <h1 class="card-text" style="color:green">158д 18ч</h1>
+             <h1 class="card-text" style="color:green">{{all_time[0]}} ч. {{all_time[1]}} мин.</h1>
            </div>
          </div>
        </div>
        <div class="col-sm-4">
          <div class="card">
            <div class="card-body">
-             <h5 class="card-title">В среднем в день</h5>
-             <h1 class="card-text" style="color:green">4ч 15м</h1>
+             <h5 class="card-title">В среднем за 1 запись</h5>
+             <h1 class="card-text" style="color:green">{{average_time[0]}} ч. {{average_time[1]}} мин.</h1>
            </div>
          </div>
        </div>
@@ -37,7 +37,7 @@
        <div class="col-sm-12">
          <h2>Последние 3 действия</h2>
          <ul class="list-group">
-            {% for item_id, item_name, item_time in records_list %}
+            {% for item_name, item_time in records_list %}
                 <li class="list-group-item list-group-item-action">
                     <div class="d-flex w-100 justify-content-between">
                     <small>{{item_time}}</small>

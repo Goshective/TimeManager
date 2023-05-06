@@ -13,6 +13,7 @@ class Activities_names(SqlAlchemyBase, SerializerMixin):
     name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     user_id = sqlalchemy.Column(sqlalchemy.Integer, 
                                 sqlalchemy.ForeignKey("users.id"))
+    color = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     # category
     recs = orm.relationship("Records", back_populates='act_n')
     user = orm.relationship("User", back_populates='act_names')

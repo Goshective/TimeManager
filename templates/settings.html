@@ -8,7 +8,7 @@
   <div class="container">
     {% if current_user.is_authenticated %}
     <h1>Пользовательские настройки</h1>
-        <div class="accordion" id="accordionPanelsStayOpenExample">
+        <div class="accordion" id="accordionPanelsStayOpen1">
           <div class="accordion-item">
             <h2 class="accordion-header">
               <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseOne" aria-expanded="true" aria-controls="panelsStayOpen-collapseOne">
@@ -22,12 +22,12 @@
                   <div class="input-group mb-3">
                     <div class="col">
                       <p> {{ activity_form_add.color.label }}: {{ activity_form_add.color() }}</p>
+                      <div>{{ activity_form_add.none_color.label }} {{ activity_form_add.none_color() }}</div>
                     </div>
-                    <div class="col">
-                      <label for="floatingInput">{{ activity_form_add.name.label }}</label>
-                      {{ activity_form_add.name(class="form-control", id="floatingInput") }}
+                    <div class="col form-floating">
+                        {{ activity_form_add.name(class="form-control",placeholder="x") }}
+                        {{ activity_form_add.name.label }}
                     </div>
-                  </div>
                   <div class="input-group mb-3">
                     <div class="col">
                         {{ activity_form_add.submit(type="submit", class="btn btn-primary") }}
@@ -41,6 +41,8 @@
               </div>
             </div>
           </div>
+        </div>
+        <div class="accordion" id="accordionPanelsStayOpen2">
           <div class="accordion-item">
             <h2 class="accordion-header">
               <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseTwo" aria-expanded="false" aria-controls="panelsStayOpen-collapseTwo">
@@ -49,10 +51,37 @@
             </h2>
             <div id="panelsStayOpen-collapseTwo" class="accordion-collapse collapse">
               <div class="accordion-body">
-                NO
+                <form class="input-group container" method="post" enctype="multipart/form-data">
+                  {{ activity_form_change.hidden_tag() }}
+                  <div class="input-group mb-3">
+                    <div class="col">
+                      <p>{{ activity_form_change.choose_names() }}</p>
+                    </div>
+                    <div class="col">
+                      <p> {{ activity_form_change.color.label }}: {{ activity_form_change.color() }}</p>
+                      <p>{{ activity_form_change.choose_color_mode() }}</p>
+                    </div>
+                    <div class="col form-floating">
+                        {{ activity_form_change.name(class="form-control", placeholder="x") }}
+                        {{ activity_form_change.name.label }}
+                    </div>
+                  </div>
+                  <div class="input-group mb-3">
+                    <div class="col">
+                        {{ activity_form_change.submit(type="submit", class="btn btn-primary") }}
+                    </div>
+                    {% if error_change_form %}
+                      <div class="alert alert-danger" role="alert">
+                        {{error_change_form}}
+                      </div>
+                    {% endif %}
+                  </div>
+                </form>
               </div>
             </div>
           </div>
+        </div>
+        <div class="accordion" id="accordionPanelsStayOpen3">
           <div class="accordion-item">
             <h2 class="accordion-header">
               <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#panelsStayOpen-collapseThree" aria-expanded="false" aria-controls="panelsStayOpen-collapseTwo">
@@ -65,7 +94,7 @@
                   {{ photo_form.hidden_tag() }}
                   <div class="input-group mb-3">
                     <div class="col">
-                      <label>{{ photo_form.photo.label }}</label>
+                      {{ photo_form.photo.label }}
                       <p> {{ photo_form.photo(class="form-control")}}</p>
                     </div>
                   </div>
@@ -78,6 +107,7 @@
                         {{error_photo}}
                       </div>
                     {% endif %}
+                  </div>
                 </form>
               </div>
             </div>
