@@ -32,6 +32,7 @@ from forms.login import LoginForm
 from forms.record import RecordForm
 from forms.activity_add import ActivityAddForm
 from forms.activity_change import ActivityChangeForm
+from forms.activity_delete import ActivityDeleteForm
 from forms.photo_form import PhotoForm
 from forms.sum_report import ReportChartForm
 from forms.token import TokenForm
@@ -75,7 +76,7 @@ def get_chart_recs(chart_type, params):
     form.activities.choices = lst_ch
 
     params['form'] = form
-    # print(form.submit.data, form.to_default.data)
+
     to_default = False
     if form.to_default.data: to_default = True
     if form.validate_on_submit() and not to_default:
@@ -145,8 +146,6 @@ def get_home_page_statistics():
         activities = db_sess.query(Activities_names).filter(
             Activities_names.user == current_user).all()
 
-        #for record in recs:
-        #    if record.date >= datetime.now().date() - timedelta(7): week_time += reco
     return activities, last_recs, week_time, all_time, average_time
 
 def get_remaining_time_handler(lst):
@@ -193,7 +192,6 @@ def index():
         params['records_list'] = records_on_site
         params['form'] = form
 
-        # print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data, form.validate_on_submit())
         if form.validate_on_submit():
             if form.work_hour.data < 0 or form.work_min.data < 0 or (form.work_hour.data == form.work_min.data == 0):
                 return render_template("index.html", error="Некорректное значение времени", **params)
@@ -213,7 +211,6 @@ def index():
                 db_sess.merge(current_user)
                 db_sess.commit()
             return redirect('/')
-        # else: print(form.date.data, form.activity.data, form.work_hour.data, form.work_min.data)
     return render_template("index.html", **params)
 
 
@@ -236,14 +233,19 @@ def settings():
     activity_form_add = ActivityAddForm()
     params['activity_form_add'] = activity_form_add
 
-    photo_form = PhotoForm()
-    params['photo_form'] = photo_form
-
     activity_form_change = ActivityChangeForm()
     with db_session.create_session() as db_sess:
         acts = db_sess.query(Activities_names).filter(Activities_names.user == current_user).all()
-        activity_form_change.choose_names.choices = [(str(item.id), item.name) for item in acts]
+        choices = [(str(item.id), item.name) for item in acts]
+    activity_form_change.choose_names.choices = choices
     params['activity_form_change'] = activity_form_change
+
+    activity_form_delete = ActivityDeleteForm()
+    activity_form_delete.choose_names.choices = choices
+    params['activity_form_delete'] = activity_form_delete
+
+    photo_form = PhotoForm()
+    params['photo_form'] = photo_form
 
     if 'submit' in request.form and request.method == 'POST':
         name = request.form['submit']
@@ -267,6 +269,13 @@ def settings():
                 return ans
             else:
                 params['error_change_form'] = ans
+
+        elif name == 'Удалить':
+            code, ans = delete_activity(activity_form_delete, current_user)
+            if code == 0:
+                return ans
+            else:
+                params['error_delete_form'] = ans
     
     return render_template("settings.html", **params)
 

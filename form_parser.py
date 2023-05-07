@@ -2,6 +2,7 @@ from flask import redirect
 from sqlalchemy import and_, or_, not_
 
 from data.act_names import Activities_names
+from data.records import Records
 from data.pictures import Pictures
 from data import db_session
 
@@ -26,9 +27,9 @@ def add_activity(form, current_user):
         db_sess.close()
         return 0, redirect('/settings')
     else:
-        return 1, parser_add_activity_error(form.errors)
+        return 1, parser_activity_error(form.errors)
     
-def parser_add_activity_error(errors):
+def parser_activity_error(errors):
     return errors
 
 def change_activity(form, current_user):
@@ -66,7 +67,20 @@ def change_activity(form, current_user):
         db_sess.close()
         return 0, redirect('/settings')
     else:
-        return 1, parser_add_activity_error(form.errors)
+        return 1, parser_activity_error(form.errors)
+    
+def delete_activity(form, current_user):
+    if form.validate_on_submit():
+        db_sess = db_session.create_session()
+        db_sess.add(current_user)
+        
+        db_sess.query(Records).filter_by(name_id=int(form.choose_names.data)).delete()
+        db_sess.query(Activities_names).filter_by(id=int(form.choose_names.data)).delete()
+        db_sess.commit()
+        db_sess.close()
+        return 0, redirect('/settings')
+    else:
+        return 1, parser_activity_error(form.errors)
 
 def add_photo(form, current_user):
     if form.validate_on_submit():
