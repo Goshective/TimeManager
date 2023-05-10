@@ -7,5 +7,5 @@ from wtforms.widgets import ColorInput
 class ActivityAddForm(FlaskForm):
     name = StringField('Название активности', validators=[DataRequired()])
     color = StringField('Цвет графика', widget=ColorInput(), validators=[Optional()])
-    none_color = BooleanField('Автоматический цвет', validators=[Optional()])
+    none_color = BooleanField('Автоматический цвет', validators=[Optional()], default=True)
     submit = SubmitField('Добавить')

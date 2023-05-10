@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import DateField, SelectMultipleField, SubmitField
 from wtforms.validators import DataRequired, Optional
-from functional_counting import date_max, date_min
+from utilities import date_max, date_min
 
 
 class ReportChartForm(FlaskForm):

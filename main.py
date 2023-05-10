@@ -3,7 +3,8 @@ from flask import (
     render_template, 
     redirect, 
     request, 
-    make_response,)
+    make_response,
+    abort)
 from flask_login import (
     LoginManager, 
     login_user, 
@@ -18,8 +19,7 @@ import pandas as pd
 import json
 import plotly
 import plotly.express as px
-import random
-import string
+from math import ceil
 
 from data import db_session
 from data.users import User
@@ -40,8 +40,13 @@ from forms.token import TokenForm
 from data.api_records import RecordsListResource, RecordsResource
 
 from config import SECRET_KEY
-from functional_counting import Date_picker
-from form_parser import *
+from utilities import (
+    get_work_time, get_token, 
+    get_pages, get_page_after_delete, 
+    db_datetime_formating, get_remaining_time_title)
+from form_parser import (add_activity, change_activity, 
+                         delete_activity, add_photo,
+                         delete_record, add_record)
 
 
 app = Flask(__name__)
@@ -58,11 +63,7 @@ HORIZONTAL_BAR = 0
 MULTI_BAR = 1
 N_SYMBOLS = 40
 
-def db_datetime_formating(t):
-    normal_t = t.split(".")[0]
-    return datetime.strptime(normal_t, '%Y-%m-%d %H:%M:%S')
-
-def get_chart_recs(chart_type, params):
+def get_chart_records(chart_type, params):
     if chart_type == HORIZONTAL_BAR:
         params['description2'] = 'Тут можно посмотреть чёткую статистику по суммарно проведённому времени.'
     else:
@@ -108,11 +109,10 @@ def get_chart_recs(chart_type, params):
                 Records.created_date).all()
     return recs, params, db_sess
 
-
 def get_home_page_statistics():
     with db_session.create_session() as db_sess:
         statement1 = text('''
-        SELECT activities_names.name, records.work_hours, records.work_min, records.created_date 
+        SELECT activities_names.name, records.work_hours, records.work_min, records.created_date, records.id
         FROM records
         INNER JOIN activities_names ON records.name_id=activities_names.id
         WHERE records.user_id == :id ORDER BY records.id DESC LIMIT 3''')
@@ -128,47 +128,38 @@ def get_home_page_statistics():
         par2 = {'id': current_user.id}
 
         for row in db_sess.execute(statement1, par2):
-            dct = {'name': row[0],
+            dct = {'id': row[4],
+                   'name': row[0],
                    'work_hours': row[1],
                    'work_min': row[2], 
                    'created_date': db_datetime_formating(row[3])}
             last_recs.append(dct)
         for row in db_sess.execute(statement3, params=par):
             week_h, week_m = row
-        week_time = (str(week_h + week_m // 60), str(week_m % 60))
+        if week_h or week_m:
+            week_time = (str(week_h + week_m // 60), str(week_m % 60))
+        else:
+            week_time = 0, 0
 
         for row in db_sess.execute(statement2, params=par2):
             n_records, rec_h, rec_m = row
-        all_time = (str(rec_h + rec_m // 60), str(rec_m % 60))
-        av_minute_time = (rec_h * 60 + rec_m) // n_records if n_records != 0 else 0
-        average_time = (str(av_minute_time // 60), str(av_minute_time % 60))
+        if n_records or rec_h or rec_m:
+            all_time = (str(rec_h + rec_m // 60), str(rec_m % 60))
+            av_minute_time = (rec_h * 60 + rec_m) // n_records if n_records != 0 else 0
+            average_time = (str(av_minute_time // 60), str(av_minute_time % 60))
+        else:
+            all_time, average_time = (0, 0), (0, 0)
 
         activities = db_sess.query(Activities_names).filter(
             Activities_names.user == current_user).all()
 
     return activities, last_recs, week_time, all_time, average_time
 
-def get_remaining_time_handler(lst):
-    ans = []
-    for dct in lst:
-        dt = dct['created_date']
-        remain = Date_picker.get_time(dt, datetime.now())
-        act_name = dct['name']
-        work_time = f'{act_name} - затрачено'
-        if dct['work_hours'] != 0: work_time += f" {dct['work_hours']} ч."
-        if dct['work_min'] != 0: work_time += f" {dct['work_min']} мин."
-        ans.append((remain, work_time))
-    return ans
-
-def get_token(n):
-    return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(n))
-    
 
 @login_manager.user_loader
 def load_user(user_id):
     with db_session.create_session() as db_sess:
         return db_sess.query(User).get(user_id)
-
 
 @app.route("/",  methods=['GET', 'POST'])
 def index():
@@ -188,40 +179,19 @@ def index():
         params['average_time'] = average_time
         
         form.activity.choices = [(item.id, item.name) for item in activities]
-        records_on_site = get_remaining_time_handler(last_recs)
+        records_on_site = get_remaining_time_title(last_recs)
         params['records_list'] = records_on_site
         params['form'] = form
-
-        if form.validate_on_submit():
-            if form.work_hour.data < 0 or form.work_min.data < 0 or (form.work_hour.data == form.work_min.data == 0):
-                return render_template("index.html", error="Некорректное значение времени", **params)
-
-            record = Records()
-            record.name_id = form.activity.data
-            if form.date.data == datetime.now().date():
-                record.created_date = datetime.now()
-            else:
-                record.created_date = form.date.data
-
-            record.work_hours = form.work_hour.data
-            record.work_min = form.work_min.data
-            with db_session.create_session() as db_sess:
-                db_sess.add(current_user)
-                current_user.records.append(record)
-                db_sess.merge(current_user)
-                db_sess.commit()
-            return redirect('/')
+        if request.method == 'POST':
+            code, ans = add_record(form, current_user)
+            if code == 0: return ans
+            params['error'] = ans
     return render_template("index.html", **params)
 
-
-@app.route('/cancel/<int:item_id>')
+@app.route('/cancel/<int:item_id>', methods=['POST'])
 def cancel(item_id):
-    if current_user.is_authenticated:
-        with db_session.create_session() as db_sess:
-            db_sess.query(Records).filter(Records.id == item_id).delete()
-            db_sess.commit()
+    delete_record(item_id, current_user)
     return redirect('/')
-
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
@@ -251,46 +221,95 @@ def settings():
         name = request.form['submit']
         if name == 'Загрузить':
             code, ans = add_photo(photo_form, current_user)
-            if code == 0:
-                return ans
-            else:
-                params['error_photo'] = ans
+            if code == 0: return ans
+            params['error_photo'] = ans
 
         elif name == 'Добавить':
             code, ans = add_activity(activity_form_add, current_user)
-            if code == 0:
-                return ans
-            else:
-                params['error_add_form'] = ans
+            if code == 0: return ans
+            params['error_add_form'] = ans
 
         elif name == 'Изменить':
             code, ans = change_activity(activity_form_change, current_user)
-            if code == 0:
-                return ans
-            else:
-                params['error_change_form'] = ans
+            if code == 0: return ans
+            params['error_change_form'] = ans
 
         elif name == 'Удалить':
             code, ans = delete_activity(activity_form_delete, current_user)
-            if code == 0:
-                return ans
-            else:
-                params['error_delete_form'] = ans
+            if code == 0: return ans
+            params['error_delete_form'] = ans
     
     return render_template("settings.html", **params)
 
+@app.route('/records_list')
+def base_checking_records():
+    return redirect('/records_list/1')
 
-"""@app.route("/settings")
-def add_act():
-    db_sess = db_session.create_session()
-    names = ["CCC"]
-    acts = Activities_names()
-    acts.name = names[i]
-    acts.user_id = 1
-    current_user.act_names.append(acts)
-    db_sess.merge(current_user)
-    db_sess.commit()
-    return {[item.name for item in db_sess.query(Activities_names).filter(Activities_names.user == current_user)]}"""
+@app.route('/records_list/<int:page>', methods=['GET', 'POST'])
+def checking_records(page):
+    if page < 1: return abort(404)
+    params = {'title': 'Записи',
+              'description1': 'Записи',
+              'description2': 'Сначала войдите в аккаунт или заведите новый.',
+              'error': '',
+              'status_page': 5}
+    if not current_user.is_authenticated:
+        return render_template("settings.html", **params)
+
+    amount_records_page = 10
+    skip_records = (page - 1) * amount_records_page
+
+    params['description2'] = 'Отображены на страницах'
+    with db_session.create_session() as db_sess:
+        statement = text('''
+        SELECT activities_names.name, records.work_hours, 
+        records.work_min, records.created_date, records.id
+        FROM records
+        INNER JOIN activities_names ON records.name_id=activities_names.id
+        WHERE records.user_id == :id ORDER BY records.id
+        DESC LIMIT :skip_records, :amount_recs_page''')
+        statement_count = text('''
+        SELECT COUNT(*) FROM RECORDS WHERE user_id == :id''')
+        
+        page_recs = []
+        par = {'id': current_user.id, 'amount_recs_page': amount_records_page, 'skip_records': skip_records}
+        par2 = {'id': current_user.id}
+        for row in db_sess.execute(statement_count, par2):
+            max_page = max(ceil(row[0] / amount_records_page), 1)
+            amount_records = row[0]
+        if page > max_page: return abort(404)
+
+        for row in db_sess.execute(statement, par):
+            work_time = get_work_time(row[1], row[2])
+            dct = {'id': row[4], 
+                   'name': row[0],
+                   'work_time': work_time,
+                   'created_date': db_datetime_formating(row[3])}
+            page_recs.append(dct)
+        params['records'] = page_recs
+        params['amount_records_page'] = amount_records_page
+        params['amount_records'] = amount_records
+        params['current_page'] = page
+        params['max_page'] = max_page
+        params['pages'] = get_pages(max_page, page)
+    return render_template("records.html", **params)
+
+@app.route('/records_delete/<int:item_id>', methods=['POST'])
+def rec_delete(item_id):
+    if not current_user.is_authenticated:
+        return redirect("/records_list/1")
+    dct = request.form
+    if "amount_records" in dct and "current_page" in dct and "amount_records_page" in dct:
+        delete_record(item_id, current_user)
+        recs, cur_p, recs_p = dct["amount_records"], dct["current_page"], dct["amount_records_page"]
+        p = get_page_after_delete(int(recs), int(cur_p), int(recs_p))
+        return redirect(f'/records_list/{p}')
+    return redirect('/records_list/1')
+
+"""@app.route('/records_change/<int:item_id>', methods=['POST'])
+def rec_change(item_id):
+    # change_record(item_id)
+    return redirect('/records_list/1')"""
 
 @app.route('/reports_all', methods=['GET', 'POST'])
 def multi_bar():
@@ -308,7 +327,7 @@ def multi_bar():
               a = random.choice(acts)
               t = random.random()*3
               data.append([dt, a, t])  # comment to (in get charts)"""
-        recs, params, db_sess = get_chart_recs(MULTI_BAR, params)
+        recs, params, db_sess = get_chart_records(MULTI_BAR, params)
         data = []
         act_names = []
         act_colors = []
@@ -325,8 +344,7 @@ def multi_bar():
         df = pd.DataFrame(data, columns=['Дата', 'Активность', 'Часы'])
         adj = df.groupby(['Дата', 'Активность'])['Часы'].sum().reset_index()
         # Create Bar chart
-        """color_discrete_sequence = [None]*len(adj)
-        color_discrete_sequence[5] = "#000000" """
+
         fig = px.bar(adj, x='Дата', y='Часы', color='Активность', 
                      color_discrete_sequence=act_colors, barmode='stack')
         
@@ -341,7 +359,6 @@ def multi_bar():
         return render_template('reports_sum.html', graphJSON=graphJSON, success='Done', **params)
     return render_template("reports_sum.html", **params)
 
-
 @app.route('/reports_summary', methods=['GET', 'POST'])
 def horizontal_bar():
     params = {'title': 'Суммарный отчет',
@@ -350,7 +367,7 @@ def horizontal_bar():
               'error': '',
               'status_page': 2}
     if current_user.is_authenticated:
-        recs, params, db_sess = get_chart_recs(HORIZONTAL_BAR, params)
+        recs, params, db_sess = get_chart_records(HORIZONTAL_BAR, params)
         activities = []
         act_names = []
         act_colors = []
@@ -379,17 +396,18 @@ def horizontal_bar():
         return render_template("reports_sum.html", graphJSON=graphJSON, **params)
     return render_template("reports_sum.html", **params)
 
-
 @app.route('/profile_image')
 def profile_image():
     if current_user.is_authenticated:
         with db_session.create_session() as db_sess:
-            image = db_sess.query(Pictures).get(current_user.id)
-            response = make_response(image.data)
-            response.headers.set('Content-Type', 'image/jpeg')
-            response.headers.set(
-                'Content-Disposition', 'attachment', filename=f'{image.user_id}.jpg')
-        return response
+            images = db_sess.query(Pictures).filter_by(user_id=current_user.id).all()
+            if images:
+                response = make_response(images[0].data)
+                response.headers.set('Content-Type', 'image/jpeg')
+                response.headers.set(
+                    'Content-Disposition', 'attachment', filename=f'{images[0].user_id}.jpg')
+                return response
+            return abort(404)
     return None
 
 @app.route('/profile', methods=['GET', 'POST'])
@@ -436,13 +454,11 @@ def login():
                                 form=form)
     return render_template('login.html', title='Авторизация', form=form)
 
-
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect("/")
-
 
 @app.route('/register', methods=['GET', 'POST'])
 def reqister():
@@ -469,22 +485,17 @@ def reqister():
         return redirect('/login')
     return render_template('register.html', title='Регистрация', form=form)
 
-
-@app.errorhandler(404)
+"""@app.errorhandler(404)
 def not_found(error):
-    return render_template('error_404.html', title='Страница не найдена', error=error)
-
+    return render_template('error_404.html', title='Страница не найдена', error=error)"""
 
 """@app.errorhandler(500)
 def internal_error(error):
     return render_template('error_500.html', title='Oшибка сервера', error=error)"""
 
-
 def main():
     db_session.global_init("C:/Dev/Olymps/yandex_lyceum/Project3/db/time_mngr_data.db")
     app.run()
-
-
 
 if __name__ == '__main__':
     main()

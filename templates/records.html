@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    
+  <div class="starter-template">
+    <h1>{{description1}}</h1>
+    <p class="lead">{{description2}}</p>
+  </div>
+  {% if current_user.is_authenticated %}
+    {% for item in records%}
+    <div class="col-md6 border rounded">
+      <h2>{{item['name']}}</h2>
+      <div>
+          Дата: {{item['created_date']}}
+      </div>
+      <div>
+        Затрачено: {{item['work_time']}}
+      </div>
+      <div style="text-align: right;">
+        <form class="input-group container" method="post" action="/records_delete/{{ item['id'] }}">
+          <input type="hidden" value="{{amount_records}}" name="amount_records">
+          <input type="hidden" value="{{current_page}}" name="current_page">
+          <input type="hidden" value="{{amount_records_page}}" name="amount_records_page">
+          <input type="submit" name="submit" class="btn btn-danger" 
+          value="Удалить" onclick="javascript:return confirm('Вы точно хотите удалить?');">
+        </form>
+        <!-- <form class="input-group container" method="post" action="/records_change/{{ item['id'] }}">
+          <input type="hidden" value="{{amount_records}}" id="amount_records">
+          <input type="hidden" value="{{current_page}}" id="current_page">
+          <input type="hidden" value="{{amount_records_page}}" id="amount_records_page">
+          <input type="submit" class="btn btn-warning" 
+          value="Изменить" onclick="javascript:return confirm('Вы точно хотите изменить?');">
+        </form> -->
+      </div>
+    </div>
+    {% endfor %}
+    <div>
+    <nav aria-label="Page navigation example">
+      <ul class="pagination">
+        {% if current_page > 1 %}
+        <li class="page-item"><a class="page-link" href="/records_list/{{current_page-1}}">Предыдущая</a></li>
+        {% endif %}
+        <li class="{{'page-item active' if current_page == 1 else 'page-item'}}"><a class="page-link" href="/records_list/1">1</a></li>
+        {% for item in pages%}
+          {% if item != '...' %}
+            <li class="{{'page-item active' if current_page == item else 'page-item'}}"><a class="page-link" href="/records_list/{{item}}">{{item}}</a></li>
+          {% else %}
+          <li class="page-item"><a class="page-link" href="#">...</a></li>
+          {% endif %}
+        {% endfor %}
+        {% if max_page != 1 %}
+        <li class="{{'page-item active' if current_page == max_page else 'page-item'}}"><a class="page-link" href="/records_list/{{max_page}}">{{max_page}}</a></li>
+        {% endif %}
+        {% if current_page != max_page %}
+        <li class="page-item"><a class="page-link" href="/records_list/{{current_page+1}}">Следующая</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+    </div> 
+  {% else %}
+    <p>
+    <img src="{{url_for('static', filename='img/Time_picture.png')}}" 
+    alt="здесь должна была быть картинка, но не нашлась">
+    </p>
+{% endif %}
+</div>
+{% endblock %}

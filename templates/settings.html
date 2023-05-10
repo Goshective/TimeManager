@@ -96,20 +96,14 @@
                     <div class="col">
                       <p>{{ activity_form_delete.choose_names() }}</p>
                       <div class="col">
-                        {{ activity_form_delete.submit(type="submit", class="btn btn-danger") }}
+                        {{ activity_form_delete.submit(type="submit", class="btn btn-danger",
+                        onclick="javascript:return confirm('Вы точно хотите удалить?');") }}
                       </div>
                     </div>
                     <div class="col">
                       <div class="alert alert-warning" role="alert">
-                        {{ activity_form_delete.check_correctness.label }}
-                        {{ activity_form_delete.check_correctness() }}
-                      </div>
-                    <div class="col">
-                      <div class="alert alert-danger" role="alert">
                         С удалением активности удалятся все записи, принадлежащие к ней
                       </div>
-                    </div>
-                    </div>
                     </div>
                   </div>
                   <div class="input-group mb-3">
