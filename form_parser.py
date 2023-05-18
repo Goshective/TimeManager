@@ -103,12 +103,8 @@ def add_record(form, current_user):
 
     record.work_hours = form.work_hour.data
     record.work_min = form.work_min.data
-    with db_session.create_session() as db_sess:
-        db_sess.add(current_user)
-        current_user.records.append(record)
-        db_sess.merge(current_user)
-        db_sess.commit()
-    return 0, redirect('/')
+    current_user.records.append(record)
+    return 0, "ok"
 
 def delete_record(item_id, current_user):
     if current_user.is_authenticated:

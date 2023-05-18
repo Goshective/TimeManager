@@ -40,6 +40,7 @@ def abort_if_record_cant_be_posted(args, token):
 
 class RecordsResource(Resource):
     def get(self, record_id):
+        if 'X-AuthToken' not in request.headers: abort(401, message=f"User token not found (try to set 'X-AuthToken' in headers)")
         token = request.headers['X-AuthToken']
         session, record = abort_if_record_not_found(token, record_id)
         js = jsonify({'records': record.to_dict(
@@ -48,6 +49,7 @@ class RecordsResource(Resource):
         return js
 
     def delete(self, record_id):
+        if 'X-AuthToken' not in request.headers: abort(401, message=f"User token not found (try to set 'X-AuthToken' in headers)")
         token = request.headers['X-AuthToken']
         session, record = abort_if_record_not_found(token, record_id)
         session.delete(record)
@@ -58,6 +60,7 @@ class RecordsResource(Resource):
 
 class RecordsListResource(Resource):
     def get(self):
+        if 'X-AuthToken' not in request.headers: abort(401, message=f"User token not found (try to set 'X-AuthToken' in headers)")
         token = request.headers['X-AuthToken']
         session, user = abort_if_records_not_found(token)
         records = session.query(Records).filter(Records.user == user).all()
@@ -67,6 +70,7 @@ class RecordsListResource(Resource):
         return js
 
     def post(self):
+        if 'X-AuthToken' not in request.headers: abort(401, message=f"User token not found (try to set 'X-AuthToken' in headers)")
         args = parser.parse_args()
         token = request.headers['X-AuthToken']
         session, user, activity = abort_if_record_cant_be_posted(args, token)

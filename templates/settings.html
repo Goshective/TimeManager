@@ -6,6 +6,10 @@
     <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='css/y_form.css')}}" />
   </head>
   <div class="container">
+    <div class="starter-template">
+      <h1>{{description1}} {{username}}</h1>
+      <p class="lead">{{description2}}</p>
+    </div>
     {% if current_user.is_authenticated %}
     <h1>Пользовательские настройки</h1>
         <div class="accordion" id="accordionPanelsStayOpen1">

@@ -46,6 +46,7 @@
         </li>
       </ul>
       <div>
+
         {% if current_user.is_authenticated %}
         <div class="row">
           <div class="col">
@@ -67,6 +68,11 @@
     </div>
   </div>
 </nav>
-{% block content %}{% endblock %}
+{% block content %}
+<div class="starter-template">
+  <h1>{{description1}}</h1>
+  <p class="lead">{{description2}}</p>
+</div>
+{% endblock %}
   </body>
 </html>

@@ -150,10 +150,8 @@ def get_home_page_statistics():
         else:
             all_time, average_time = (0, 0), (0, 0)
 
-        activities = db_sess.query(Activities_names).filter(
-            Activities_names.user == current_user).all()
 
-    return activities, last_recs, week_time, all_time, average_time
+    return last_recs, week_time, all_time, average_time
 
 
 @login_manager.user_loader
@@ -168,24 +166,34 @@ def index():
               'description2': 'Сначала войдите в аккаунт или заведите новый.',
               'error': '',
               'status_page': 0}
-    if current_user.is_authenticated:
-        params['description2'] = 'Тут можно записать время на активности и посмотреть простую статистику.'
+    if not current_user.is_authenticated:
+        return render_template("index.html", **params)
 
-        form = RecordForm()
-        activities, last_recs, week_time, all_time, average_time = get_home_page_statistics()
-        params['activities'] = activities
-        params['week_time'] = week_time
-        params['all_time'] = all_time
-        params['average_time'] = average_time
-        
-        form.activity.choices = [(item.id, item.name) for item in activities]
-        records_on_site = get_remaining_time_title(last_recs)
-        params['records_list'] = records_on_site
-        params['form'] = form
-        if request.method == 'POST':
-            code, ans = add_record(form, current_user)
-            if code == 0: return ans
+    db_sess = db_session.create_session()
+    db_sess.add(current_user)
+
+    params['description2'] = 'Тут можно записать время на активности и посмотреть простую статистику.'
+
+    form = RecordForm()
+    activities = db_sess.query(Activities_names).filter(
+            Activities_names.user == current_user).all()
+    form.activity.choices = [(item.id, item.name) for item in activities]
+    
+    if request.method == 'POST':
+        code, ans = add_record(form, current_user)
+        db_sess.commit()
+        if code != 0:
             params['error'] = ans
+
+    last_recs, week_time, all_time, average_time = get_home_page_statistics()
+    params['activities'] = activities
+    params['week_time'] = week_time
+    params['all_time'] = all_time
+    params['average_time'] = average_time
+    
+    records_on_site = get_remaining_time_title(last_recs)
+    params['records_list'] = records_on_site
+    params['form'] = form
     return render_template("index.html", **params)
 
 @app.route('/cancel/<int:item_id>', methods=['POST'])
@@ -196,7 +204,9 @@ def cancel(item_id):
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     params = {'status_page': 1,
-              'title': 'Настройки'}
+              'title': 'Настройки',
+              'description1': 'Настройки',
+              'description2': 'Сначала войдите в аккаунт или заведите новый.'}
     if not current_user.is_authenticated:
         return render_template("settings.html", **params)
 
